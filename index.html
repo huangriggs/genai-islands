@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="mint">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>生成式 AI 探索群島 - 3D 互動學習導覽</title>
+  <meta name="description" content="一座島學一件事，跟著小彬老師把生成式 AI 玩明白！國小學生專屬的 3D 生成式 AI 探索群島。">
+  <!-- Google Fonts: Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+  <!-- WebGL 3D 場景容器 -->
+  <main id="webgl-container" aria-label="生成式 AI 探索群島 3D 互動場景">
+    <canvas id="webgl-canvas"></canvas>
+    <!-- 2D 浮動島嶼名稱標籤層 -->
+    <div id="island-labels-layer" aria-hidden="true"></div>
+  </main>
+
+  <!-- 頂部功能導航列 -->
+  <header class="top-nav">
+    <div class="brand-wrapper" role="banner">
+      <div class="mascot-avatar" title="小彬老師（戴圓眼鏡、穿綠色背心的 Q 版老師）" aria-label="吉祥物小彬老師">🧑‍🏫</div>
+      <div class="brand-meta">
+        <h1>
+          生成式 AI 探索群島
+          <span class="brand-tag">3D 學習島</span>
+        </h1>
+        <p>一座島學一件事，跟著小彬老師把生成式 AI 玩明白</p>
+      </div>
+    </div>
+
+    <nav class="nav-actions" aria-label="工具與模式切換">
+      <!-- 即時時鐘與天色 -->
+      <div class="btn-tool clock-display" id="clock-display" title="即時時鐘與天色" aria-label="目前時間">
+        🕒 <span id="clock-time">12:00</span>
+      </div>
+
+      <!-- 晝夜光影切換 -->
+      <button class="btn-tool" id="btn-day-night" title="切換晝夜天色光影（白天 / 黃昏 / 夜晚）" aria-label="切換晝夜天色光影">
+        <span id="day-night-icon">☀️</span>
+        <span class="btn-label" id="day-night-text">白天</span>
+      </button>
+
+      <!-- 三組底色主題切換組（薄荷、米紙、墨色） -->
+      <div class="theme-picker-group" role="radiogroup" aria-label="主題底色選擇">
+        <button class="theme-pill-btn active" data-theme-val="mint" role="radio" aria-checked="true" title="薄荷主題（預設清涼）">
+          <span class="color-dot"></span>
+          <span class="theme-name">薄荷</span>
+        </button>
+        <button class="theme-pill-btn" data-theme-val="rice" role="radio" aria-checked="false" title="米紙主題（柔和典雅）">
+          <span class="color-dot"></span>
+          <span class="theme-name">米紙</span>
+        </button>
+        <button class="theme-pill-btn" data-theme-val="ink" role="radio" aria-checked="false" title="墨色主題（深色護眼）">
+          <span class="color-dot"></span>
+          <span class="theme-name">墨色</span>
+        </button>
+      </div>
+
+      <!-- 減少動態開關 -->
+      <button class="btn-tool" id="btn-reduced-motion" title="減少動態效果（防止暈眩）" aria-label="切換減少動態">
+        <span>🌀</span>
+        <span class="btn-label">動態</span>
+      </button>
+
+      <!-- 關鍵字搜尋 -->
+      <button class="btn-tool" id="btn-open-search" title="搜尋島嶼與學習內容" aria-label="開啟搜尋">
+        <span>🔍</span>
+        <span class="btn-label">搜尋</span>
+      </button>
+
+      <!-- 地點清單（無 3D 平等瀏覽入口） -->
+      <button class="btn-tool" id="btn-open-list" title="地點清單（純文字詳細列表）" aria-label="開啟地點清單">
+        <span>📋</span>
+        <span class="btn-label">地點清單</span>
+      </button>
+
+      <!-- 探索護照 -->
+      <button class="btn-tool" id="btn-open-passport" title="探索護照與接關碼" aria-label="開啟探索護照">
+        <span>🛂</span>
+        <span class="btn-label">探索護照</span>
+      </button>
+
+      <!-- 小嚮導問答 -->
+      <button class="btn-tool" id="btn-open-guide" title="小彬老師問答諮詢台" aria-label="開啟小嚮導問答">
+        <span>💬</span>
+        <span class="btn-label">小嚮導</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- 左下角探索進度條 -->
+  <aside class="bottom-status-bar" aria-label="群島探索進度">
+    <div class="progress-info">探索進度：<span id="progress-percent">0%</span>（<span id="visited-count">0</span>/5 島）</div>
+    <div class="progress-track" aria-hidden="true">
+      <div class="progress-fill" id="progress-fill-bar"></div>
+    </div>
+  </aside>
+
+  <!-- 畫面右下角視角操作按鈕 -->
+  <div class="view-controls" aria-label="3D 鏡頭視角控制">
+    <button class="btn-ctrl" id="btn-zoom-in" title="拉近視角" aria-label="拉近視角">＋</button>
+    <button class="btn-ctrl" id="btn-zoom-out" title="拉遠視角" aria-label="拉遠視角">－</button>
+    <button class="btn-ctrl" id="btn-reset-view" title="重設回到全景視角" aria-label="重設回到全景視角">↺</button>
+    <button class="btn-ctrl" id="btn-open-help" title="操作說明" aria-label="開啟操作說明">❓</button>
+  </div>
+
+  <!-- 島嶼內容詳細面板（桌機右側 / 手機底部抽屜） -->
+  <section class="panel-drawer" id="island-panel" aria-label="島嶼詳細內容面板" aria-modal="true" role="region">
+    <div class="panel-header">
+      <div class="panel-title-area">
+        <span class="panel-kicker" id="panel-kicker">ISLAND 01 · 基礎</span>
+        <h2 class="panel-title" id="panel-title">提示詞島</h2>
+        <p class="panel-subtitle" id="panel-subtitle">學會把需求說清楚，AI 才聽得懂！</p>
+      </div>
+      <button class="btn-close-panel" id="btn-close-panel" title="關閉面板 (Esc)" aria-label="關閉面板">×</button>
+    </div>
+
+    <!-- 面板分頁籤列 -->
+    <div class="panel-tabs-bar" role="tablist">
+      <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true">📖 學習概覽</button>
+      <button class="tab-btn" data-tab="skills" role="tab" aria-selected="false">💡 核心技巧</button>
+      <button class="tab-btn" data-tab="landmark" role="tab" aria-selected="false">🏛️ 特色地標與任務</button>
+      <button class="tab-btn" data-tab="challenge" role="tab" aria-selected="false">🎯 挑戰與蓋章</button>
+    </div>
+
+    <!-- 面板內容滑動區 -->
+    <div class="panel-content-body">
+      <!-- 分頁 1: 學習概覽 -->
+      <div class="tab-pane active" id="tab-overview">
+        <div class="lead-text" id="overview-content">
+          載入中...
+        </div>
+        <div id="overview-extra-box"></div>
+      </div>
+
+      <!-- 分頁 2: 核心技巧 -->
+      <div class="tab-pane" id="tab-skills">
+        <div class="skills-card-list" id="skills-list-container">
+          <!-- 動態插入技巧卡片 -->
+        </div>
+      </div>
+
+      <!-- 分頁 3: 特色地標與任務 -->
+      <div class="tab-pane" id="tab-landmark">
+        <div class="landmark-box">
+          <div class="landmark-icon" id="landmark-icon">🏛️</div>
+          <h3 id="landmark-name">地標名稱</h3>
+          <p id="landmark-desc">地標詳細介紹與周圍景緻說明。</p>
+        </div>
+        <div class="lead-text" id="landmark-task-box">
+          <strong>🎯 島嶼實作目標：</strong>
+          <span id="landmark-task-text">能寫出三段式提示詞</span>
+        </div>
+      </div>
+
+      <!-- 分頁 4: 挑戰與蓋章 -->
+      <div class="tab-pane" id="tab-challenge">
+        <div class="quiz-container">
+          <h3 class="quiz-question" id="quiz-question-text">挑戰題目載入中...</h3>
+          <div class="quiz-options" id="quiz-options-container">
+            <!-- 動態插入選項 -->
+          </div>
+          <div class="quiz-feedback" id="quiz-feedback-box"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 面板底部切換島嶼列 -->
+    <footer class="panel-footer">
+      <button class="btn-nav-island" id="btn-prev-island" aria-label="上一座島">← 上一座島</button>
+      <span style="font-size: 12px; color: var(--muted); font-weight:700;" id="panel-island-indicator">1 / 5</span>
+      <button class="btn-nav-island" id="btn-next-island" aria-label="下一座島">下一座島 →</button>
+    </footer>
+  </section>
+
+  <!-- ========================================================================
+       全站通用彈出視窗 (Modals)
+       ======================================================================== -->
+
+  <!-- 1. 搜尋彈出視窗 -->
+  <div class="modal-overlay" id="modal-search" role="dialog" aria-modal="true" aria-labelledby="modal-search-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 id="modal-search-title">🔍 搜尋探索群島</h2>
+        <button class="btn-close-panel btn-modal-close" data-close="modal-search" aria-label="關閉搜尋">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="search-input-wrap">
+          <input type="text" class="search-input" id="search-keyword-input" placeholder="輸入關鍵字，例如：三段式、幻覺、負面提示詞、個資..." autofocus>
+        </div>
+        <div class="search-results-list" id="search-results-container">
+          <p style="color: var(--muted); text-align: center; padding: 20px;">請輸入關鍵字開始檢索...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 地點清單彈出視窗 (無 3D 平等瀏覽) -->
+  <div class="modal-overlay" id="modal-list" role="dialog" aria-modal="true" aria-labelledby="modal-list-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 id="modal-list-title">📋 群島地點清單</h2>
+        <button class="btn-close-panel btn-modal-close" data-close="modal-list" aria-label="關閉清單">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--ink-secondary); margin-bottom: 16px;">
+          點選任何地點直接開啟專屬學習內容與地標挑戰：
+        </p>
+        <div class="island-list-cards" id="island-list-cards-container">
+          <!-- 動態載入地點卡片 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 探索護照與接關碼彈出視窗 -->
+  <div class="modal-overlay" id="modal-passport" role="dialog" aria-modal="true" aria-labelledby="modal-passport-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 id="modal-passport-title">🛂 探險家專屬護照</h2>
+        <button class="btn-close-panel btn-modal-close" data-close="modal-passport" aria-label="關閉護照">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="passport-grid" id="passport-stamps-grid">
+          <!-- 動態載入印章 -->
+        </div>
+
+        <div class="code-exchange-box">
+          <h4>🎟️ 接關碼（跨裝置同步進度）</h4>
+          <p style="font-size: 12px; color: var(--ink-secondary); margin-bottom: 8px;">
+            複製這串代碼到另一台電腦或手機貼上，即可瞬間還原蓋章進度！
+          </p>
+          <div class="code-row">
+            <input type="text" class="code-input" id="passport-code-input" readonly>
+            <button class="btn-tool" id="btn-copy-code" style="min-width: 60px;">複製</button>
+          </div>
+          <div style="margin-top: 10px; display: flex; gap: 8px;">
+            <input type="text" class="code-input" id="passport-import-input" placeholder="在此貼上接關碼...">
+            <button class="btn-tool" id="btn-import-code" style="min-width: 60px;">載入</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; text-align: right;">
+          <button class="btn-tool" id="btn-reset-progress" style="color: var(--accent); border-color: var(--accent);">
+            🗑️ 重置所有探索進度
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 小嚮導問答諮詢台 (小彬老師) -->
+  <div class="modal-overlay" id="modal-guide" role="dialog" aria-modal="true" aria-labelledby="modal-guide-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 id="modal-guide-title">💬 小彬老師的小嚮導服務台</h2>
+        <button class="btn-close-panel btn-modal-close" data-close="modal-guide" aria-label="關閉小嚮導">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="guide-qa-box">
+          <p style="font-size: 13px; color: var(--ink-secondary);">
+            哈囉！我是小彬老師。對生成式 AI 有疑問嗎？點選下方熱門問題，或直接搜尋網站內容！
+          </p>
+          <div class="qa-suggestion-pills" id="guide-pills-container">
+            <!-- 動態填入推薦問題標籤 -->
+          </div>
+          <div class="search-input-wrap" style="margin-bottom: 0;">
+            <input type="text" class="search-input" id="guide-question-input" placeholder="輸入你想問小彬老師的問題...">
+          </div>
+          <div class="guide-answer-card" id="guide-answer-card">
+            <h4 id="guide-answer-title">回答標題</h4>
+            <p id="guide-answer-text">回答內容...</p>
+            <div class="guide-source-link" id="guide-answer-source">📍 出自：提示詞島</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. 操作說明彈出視窗 -->
+  <div class="modal-overlay" id="modal-help" role="dialog" aria-modal="true" aria-labelledby="modal-help-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 id="modal-help-title">❓ 探索指南與操作說明</h2>
+        <button class="btn-close-panel btn-modal-close" data-close="modal-help" aria-label="關閉說明">×</button>
+      </div>
+      <div class="modal-body" style="font-size: 14px; line-height: 1.8;">
+        <h4 style="color: var(--primary); margin-bottom: 6px;">🎮 3D 視角互動</h4>
+        <ul style="padding-left: 20px; margin-bottom: 16px;">
+          <li><strong>旋轉畫面</strong>：滑鼠左鍵按住拖曳，或手指在螢幕上單指滑動。</li>
+          <li><strong>縮放畫面</strong>：滑鼠滾輪滾動，或雙指開合縮放。</li>
+          <li><strong>登島探索</strong>：點擊 3D 島嶼建築，或點擊島嶼上方的浮動名稱標籤。</li>
+          <li><strong>回到全景</strong>：點擊右下角的「↺」按鈕重置視角。</li>
+        </ul>
+        <h4 style="color: var(--primary); margin-bottom: 6px;">🎓 學習通關方式</h4>
+        <p>每座島嶼都設計了「學習概覽」、「核心技巧」與「挑戰實作」。答對每座島的測驗即可蓋上金色印章，集滿 5 枚印章即可解鎖金牌領航員榮譽！</p>
+        <p style="font-size: 12px; color: var(--muted); margin-top: 14px;">
+          本站內容依 project.json 規格由 3A 科技研究社專為國小學生自編規劃，為示意教學導覽用途。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- WebGL 失敗時備用文字橫條 -->
+  <div id="webgl-fallback-banner">
+    ⚠️ 您的裝置目前未能啟動 3D WebGL 模式，已為您自動切換至純文字無障礙地點清單模式！
+  </div>
+
+  <!-- 模組對齊映射 -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./js/vendor/three.module.js",
+      "three/addons/": "./js/vendor/"
+    }
+  }
+  </script>
+  <!-- 主邏輯 JS 模組 -->
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
